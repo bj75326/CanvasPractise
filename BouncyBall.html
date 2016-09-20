@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Bouncy Ball</title>
+    <style type="text/css">
+        html, body {
+            background-color: #e9e9e9;
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+
+        canvas {
+            display: block;
+            margin: 0px;
+            padding: 0px;
+            display: block;
+        }
+
+        .wrapper {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <canvas id="canvas"></canvas>
+</div>
+<script type="text/javascript">
+    var Bin = {
+        on: function (element, type, handler, userCapture) {
+            if (document.attachEvent) {
+                element.attachEvent("on" + type, handler);
+            } else if (document.addEventListener) {
+                element.addEventListener(type, handler, userCapture);
+            }
+        },
+
+        off: function (element, type, handler, userCapture) {
+            if (document.detachEvent) {
+                document.detachEvent("on" + type, handler);
+            } else if (document.removeEventListener) {
+                element.removeEventListener(type, handler, userCapture);
+            }
+        },
+
+        ready: function (fn) {
+            if (document.addEventListener) {
+                document.addEventListener("DOMContentLoaded", function () {
+                    document.removeEventListener("DOMContentLoaded", arguments.callee, false);
+                    fn();
+                }, false);
+            } else if (document.attachEvent) {
+                document.attachEvent("onreadystatechange", function () {
+                    if (document.readyState == "completed") {
+                        document.detachEvent("onreadystatechange", arguments.callee);
+                        fn();
+                    }
+                });
+            }
+        },
+
+        eventDispatch: function (element, type, customProperty) {
+            if (document.fireEvent) {
+                var event = document.createEventObject();
+                event.eventType = type;
+                event.dispatchFlag = true;
+                element.fireEvent("on" + type, event);
+            } else if (document.dispatchEvent) {
+                var event = new MouseEvent("click", {
+                    'view': window,
+                    'bubbles': true,
+                    'cancelable': true
+                });
+                event.dispatchFlag = true;
+                if (customProperty) {
+                    for (var key in customProperty) {
+                        if (!(key in event)) {
+                            event[key] = customProperty[key];
+                        }
+                    }
+                }
+                element.dispatchEvent(event);
+            }
+        },
+
+        debounce: function(idle, action){
+            var last;
+            return function(){
+                var ctx = this;
+                var arg = arguments;
+                clearTimeout(last);
+                last = setTimeout(function(){
+                    return action.apply(ctx, arg);
+                }, idle);
+            }
+        },
+
+        throttle: function(delay, action){
+            var last = 0;
+            return function(){
+                var curr = +new Date();
+                if(curr-last > delay){
+                    last = curr;
+                    return action.apply(this, arguments);
+                }
+            };
+        }
+    };
+
+    Bin.ready(function(){
+        var canvas = document.querySelector("canvas");
+
+        var initWidth = window.innerWidth;
+        var initHeight = window.innerHeight;
+
+        canvas.setAttribute("width", window.innerWidth + "px");
+        canvas.setAttribute("Height", window.innerHeight + "px");
+
+        var ctx = canvas.getContext("2d");
+
+        var raf;
+
+        var l = 0;
+        var t = 0;
+        var ispeedX = 0; //记录鼠标松开之后的水平初始速度
+        var ispeedY = 0; //记录鼠标松开之后的纵向初始速度
+
+        var ball = {
+            x: initWidth/2,
+            y: initHeight/4,
+            vx: 0,
+            vy: 0,
+            radius: 25,
+            color: "#88b999",
+            draw: function(){
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        };
+
+        var clear = function(){
+            ctx.fillStyle = "rgba(233, 233, 233, 1)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        };
+
+        var draw = function(){  //NA
+            clear();
+            ball.draw();
+            ball.vy += 3; //模拟加速度
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            if(ball.y + ball.radius + 3 > canvas.height){
+                ball.vy *= -0.8; //模拟能量损耗
+                console.log(ball.vy);
+                if(Math.abs(ball.vy) <= 0.8){
+                    ball.y = canvas.height-ball.radius;
+                    ball.vy = 0;
+                    window.requestAnimationFrame(function(){
+                        clear();
+                        ball.draw();
+                    });
+                    return;
+                }
+            }
+
+            raf = window.requestAnimationFrame(draw);
+        };
+
+        var draw2 = function(){
+            clear();
+            ball.draw();
+
+            ispeedY += 3; //垂直方向模拟重力加速度
+
+            ball.x += ispeedX;
+            ball.y += ispeedY;
+
+            if(ball.x + ball.radius > canvas.width){
+                ball.x = canvas.width - ball.radius;
+                ispeedX *= -1;
+            }
+            if(ball.x - ball.radius < 0){
+                ball.x = ball.radius;
+                ispeedX *= -1;
+            }
+            if(ball.y + ball.radius> canvas.height){
+                ball.y = canvas.height - ball.radius;
+                ispeedY *= -0.8; //模拟能量损耗
+                ispeedX *= 0.9;  //模拟能量损耗
+            }
+            if(ball.y - ball.radius < 0){
+                ball.y = ball.radius;
+                ispeedY *= -1;
+            }
+
+            if(Math.abs(ispeedX) < 1){
+                ispeedX = 0;
+            }
+            if(Math.abs(ispeedY) < 1){
+                ispeedY = 0;
+            }
+            if(ispeedX == 0 && ispeedY == 0 && ball.y == canvas.height-ball.radius){
+                window.requestAnimationFrame(function(){
+                    clear();
+                    ball.draw();
+                });
+                return;
+            }
+
+            raf = window.requestAnimationFrame(draw2);
+        };
+
+        if(!("ontouchstart" in window)) {
+            Bin.on(canvas, 'mousedown', function (ev) {
+                var event = ev || window.event;
+                console.log("Click x:" + event.clientX + "; y:" + event.clientY);
+                if (Math.abs(ball.x - event.clientX) < ball.radius && Math.abs(ball.y - event.clientY) < ball.radius) {
+                    //console.log("will drag");
+                    var disX = event.clientX - ball.x;
+                    var disY = event.clientY - ball.y;
+                    var mouseMoveFn = function (ev) {
+                        var event = ev || window.event;
+                        ball.x = event.clientX - disX;
+                        ball.y = event.clientY - disY;
+
+                        ispeedX = ball.x - l;
+                        ispeedY = ball.y - t;
+
+                        l = ball.x;
+                        t = ball.y;
+                        window.requestAnimationFrame(function () {
+                            clear();
+                            ball.draw();
+                        });
+                    };
+                    var mouseUpFn = function (ev) {
+                        var event = ev || window.event;
+                        Bin.off(canvas, 'mousemove', mouseMoveFn, false);
+                        Bin.off(canvas, 'mouseup', mouseUpFn, false);
+                        window.requestAnimationFrame(draw2);
+                    };
+                    Bin.on(canvas, "mousemove", mouseMoveFn, false);
+                    Bin.on(canvas, "mouseup", mouseUpFn, false);
+                }
+            }, false);
+
+            var resizeFn = function(){
+                canvas.setAttribute("width", window.innerWidth + "px");
+                canvas.setAttribute("height", window.innerHeight + "px");
+
+                if(ball.x + ball.radius > window.innerWidth){
+                    ball.x = window.innerWidth - ball.radius;
+                }
+
+                if(ball.y + ball.radius > window.innerHeight){
+                    ball.y = window.innerHeight - ball.radius;
+                }
+
+                window.requestAnimationFrame(draw2);
+            };
+
+            var debouncedFn = Bin.debounce(16, resizeFn);
+
+            Bin.on(window, "resize", debouncedFn, false);
+        }else {
+            Bin.on(canvas, "touchstart", function (ev) {
+                var event = ev || window.event;
+                console.log(event);
+                console.log("Touch x:" + event.changedTouches[0].clientX + "; y:" + event.changedTouches[0].clientY);
+                if(Math.abs(ball.x - event.changedTouches[0].clientX) < ball.radius && Math.abs(ball.y - event.changedTouches[0].clientY) < ball.radius){
+                    var disX = event.changedTouches[0].clientX - ball.x;
+                    var disY = event.changedTouches[0].clientY - ball.y;
+                    var touchMoveFn = function(ev){
+                        var event = ev || window.event;
+                        ball.x = event.changedTouches[0].clientX - disX;
+                        ball.y = event.changedTouches[0].clientY - disY;
+
+                        ispeedX = ball.x - l;
+                        ispeedY = ball.y - t;
+
+                        l = ball.x;
+                        t = ball.y;
+                        window.requestAnimationFrame(function () {
+                            clear();
+                            ball.draw();
+                        });
+                    };
+                    var touchEndFn = function(ev){
+                        var event = ev || window.event;
+                        Bin.off(canvas, 'touchmove', touchMoveFn, false);
+                        Bin.off(canvas, 'touchend', touchEndFn, false);
+                        window.requestAnimationFrame(draw2);
+                    };
+                    Bin.on(canvas, "touchmove", touchMoveFn, false);
+                    Bin.on(canvas, "touchend", touchEndFn, false);
+                }
+            }, false);
+        }
+        raf = window.requestAnimationFrame(draw2);
+    });
+</script>
+</body>
+</html>

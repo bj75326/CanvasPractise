@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+    <title>CanvasLine#1</title>
+    <style type="text/css">
+        html, body {
+            background-color: #333;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        canvas {
+            display: block;
+            margin: 0;
+            padding: 0;
+        }
+
+        .wrapper {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <canvas id="canvas"></canvas>
+</div>
+<script type="text/javascript">
+    var Bin = {
+        on: function(element, type, handler, userCapture){
+            if(document.attachEvent){
+                element.attachEvent("on" + type, handler);
+            }else if(document.addEventListener){
+                element.addEventListener(type, handler, userCapture);
+            }
+        },
+
+        off: function(element, type, handler, userCapture){
+            if(document.detachEvent){
+                element.detachEvent("on" + type, handler);
+            }else{
+                element.removeEventListener(type, handler, userCapture);
+            }
+        },
+
+        ready: function(fn){
+            if(document.attachEvent){
+                document.attachEvent("onreadystatechange", function(){
+                    if(document.readyState == "completed"){
+                        document.detachEvent("onreadystatechange", arguments.callee);
+                        fn();
+                    }
+                });
+            }else if(document.addEventListener){
+                document.addEventListener("DOMContentLoaded", function(){
+                    document.removeEventListener("DOMContentLoaded", arguments.callee, false);
+                    fn();
+                }, false);
+            }
+        },
+
+        eventDispatch: function(element, type, customProperty){
+            if(document.fireEvent){
+                var event = document.createEventObject();
+                event.eventType = type;
+                event.dispatchFlag = true;
+                element.fireEvent("on" + type, event);
+            }else if(document.dispatchEvent){
+                var event = new MouseEvent("click", {
+                    'view': window,
+                    'bubbles': true,
+                    'cancelable': true
+                });
+                event.dispatchFlag = true;
+                if(customProperty){
+                    for(var key in customProperty){
+                        if(!(key in event)){
+                            event[key] = customProperty[key];
+                        }
+                    }
+                }
+                element.dispatchEvent(event);
+            }
+        },
+
+        random: function(m, n){
+            return Math.floor(Math.random() * (n - m) + m );
+        },
+
+        debounce: function(idle, action){
+            var last;
+            return function(){
+                clearTimeout(last);
+                var ctx = this;
+                var argu = arguments;
+                last = setTimeout(function(){
+                    action.apply(ctx, argu);
+                }, idle);
+            };
+        },
+
+        throttle: function(delay, action){
+            var last = 0;
+            return function(){
+                var curr = +new Date();
+                if(curr - last >= delay){
+                    action.apply(this, arguments);
+                    last = curr;
+                }
+            };
+        }
+    };
+
+    var CanvasLine = function(options){
+
+        /*
+         * options = {
+         *
+         * }
+         */
+
+        options || (options = {});
+
+        var canvas = document.querySelector("#canvas");
+
+        var initWidth = window.innerWidth;
+        var initHeight = window.innerHeight;
+
+        canvas.setAttribute("width", initWidth + "px");
+        canvas.setAttribute("height", initHeight + "px");
+
+        var ctx = canvas.getContext("2d");
+
+        //clear
+        var clear = function(){
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        };
+
+        //Point
+        var num = options.number || 8;
+        var points = [];
+        var Point = function(x, y){
+            this.x = x;
+            this.y = y;
+            this.speedX = Bin.random(-5, 5);
+            this.speedY = Bin.random(-5, 5);
+        };
+        Point.prototype.drawPoint = function(){
+            ctx.fileStyle = "#fff";
+            ctx.fillRect(this.x, this.y, 0, 0);
+            ctx.strokeRect(this.x, this.y, 0, 0);
+        };
+        for(var i= 0; i<num; i++){
+            points[i] = new Point(Bin.random(0, window.innerWidth), Bin.random(0, window.innerHeight));
+        }
+
+        //resize handle
+        var resizeFn = function(){
+            canvas.setAttribute("width", window.innerWidth + "px");
+            canvas.setAttribute("height", window.innerHeight + "px");
+
+            points.forEach(function(point){
+                if(point.x > window.innerWidth){
+                    point.x = window.innerWidth;
+                }
+
+                if(point.y > window.innerHeight){
+                    point.y = window.innerHeight;
+                }
+            });
+        };
+        var debouncedFn = Bin.debounce(16, resizeFn);
+        Bin.on(window, "resize", debouncedFn, false);
+
+        var ghost = [];
+
+        var draw = function(){
+            clear();
+            points.forEach(function(point){
+                point.drawPoint();
+                point.x += point.speedX;
+                point.y += point.speedY;
+
+                if(point.x <= 0){
+                    point.x = 0;
+                    point.speedX *= -1;
+                }
+                if(point.x >= window.innerWidth){
+                    point.x = window.innerWidth;
+                    point.speedX *= -1;
+                }
+                if(point.y <= 0){
+                    point.y = 0;
+                    point.speedY *= -1;
+                }
+                if(point.y >= window.innerHeight){
+                    point.y = window.innerHeight;
+                    point.speedY *= -1;
+                }
+            });
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            points.reduce(function(prevPoint, currPoint){
+                ctx.lineTo(currPoint.x, currPoint.y);
+                return currPoint;
+            });
+            ctx.strokeStyle = 'rgba( ' + (options.r || 56)  + ', ' + (options.g || 153) +', ' + (options.b || 210) + ', 1)';
+            ctx.closePath();
+            ctx.stroke();
+
+            var status = [];
+            points.forEach(function(point){
+                status.push({x: point.x, y: point.y});
+            });
+            ghost.push(status);
+            while(ghost.length > 20){
+                ghost.shift();
+            }
+            ghost.forEach(function(status, index){
+                ctx.beginPath();
+                ctx.moveTo(status[0].x, status[0].y);
+                status.reduce(function(prevPoint, currPoint){
+                    ctx.lineTo(currPoint.x, currPoint.y);
+                    return currPoint;
+                });
+                var opacity = index/ghost.length;
+                ctx.strokeStyle = 'rgba( ' + (options.r || 56)  + ', ' + (options.g || 153) +', ' + (options.b || 210) + ', '+ opacity +')';
+                ctx.closePath();
+                ctx.stroke();
+            });
+
+            window.requestAnimationFrame(draw);
+        };
+
+        window.requestAnimationFrame(draw);
+    };
+
+    Bin.ready(function(){
+        CanvasLine({
+            number: 100
+        });
+    });
+</script>
+</body>
+</html>

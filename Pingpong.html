@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jump Ball By Canvas</title>
+    <style type="text/css">
+        html, body {
+            background-color: #e9e9e9;
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+
+        canvas {
+            /*border: 1px solid #cd8484; */
+            background-color: #e9e9e9;
+            margin: 0px;
+            padding: 0px;
+            display: block;
+        }
+
+        .wrapper {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <canvas id="canvas"></canvas>
+</div>
+<script type="text/javascript">
+    var Bin = {
+        on: function (element, type, handler, userCapture) {
+            if (document.attachEvent) {
+                element.attachEvent("on" + type, handler);
+            } else if (document.addEventListener) {
+                element.addEventListener(type, handler, userCapture);
+            }
+        },
+
+        off: function (element, type, handler, userCapture) {
+            if (document.detachEvent) {
+                element.detachEvent("on" + type, handler);
+            } else if (document.removeEventListener) {
+                element.removeEventListener(type, handler, userCapture);
+            }
+        },
+
+        ready: function (fn) {
+            if (document.addEventListener) {
+                document.addEventListener("DOMContentLoaded", function () {
+                    document.removeEventListener("DOMContentLoaded", arguments.callee, false);
+                    fn();
+                }, false);
+            } else if (document.attachEvent) {
+                document.attachEvent("onreadystatechange", function () {
+                    if (document.readyState == "completed") {
+                        document.detachEvent("onreadystatechange", arguments.callee);
+                        fn();
+                    }
+                });
+            }
+        },
+
+        eventDispatch: function (element, type, customProperty) {
+            if (document.fireEvent) {
+                var event = document.createEventObject();
+                event.eventType = type;
+                event.dispatchFlag = true;
+                element.fireEvent("on" + type, event);
+            } else if (document.dispatchEvent) {
+                var event = new MouseEvent("click", {
+                    'view': window,
+                    'bubbles': true,
+                    'cancelable': true
+                });
+                event.dispatchFlag = true;
+                if (customProperty) {
+                    for (var key in customProperty) {
+                        if (!(key in event)) {
+                            event[key] = customProperty[key];
+                        }
+                    }
+                }
+                element.dispatchEvent(event);
+            }
+        },
+
+        cssCapture: function (obj, attr) {
+            if (obj.currentStyle) {
+                return obj.currentStyle[attr];
+            } else {
+                return getComputedStyle(obj, null)[attr];
+            }
+        },
+
+        debounce: function(idle, action){
+            var last;
+            return function(){
+                var ctx = this;
+                var arg = arguments;
+                clearTimeout(last);
+                last = setTimeout(function(){
+                    return action.apply(ctx, arguments);
+                }, idle);
+            }
+        },
+
+        throttle: function(delay, action){
+            var last = 0;
+            return function(){
+                var curr = +new Date();
+                if(curr - last > delay){
+                    last = curr;
+                    return action.apply(this, arguments);
+                }
+            };
+        }
+    };
+
+    Bin.ready(function () {
+        var canvas = document.querySelector("canvas");
+
+        var prevWidth = window.innerWidth;
+        var prevHeight = window.innerHeight;
+
+        canvas.setAttribute("width", prevWidth + "px");
+        canvas.setAttribute("height", prevHeight + "px");
+
+        var ctx = canvas.getContext("2d");
+
+        var raf;
+        var running = false; //
+
+        var ball = {
+            x: 100,
+            y: 100,
+            vx: 10,
+            vy: 4,
+            radius: 25,
+            color: '#88b999',
+            draw: function () {
+                ctx.beginPath();    //清空子路径列表开始一个新路径的方法
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);  //绘制圆弧路径
+                ctx.closePath();   //将笔点返回到当前子路径起始点
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        };
+
+        var draw = function () {
+            console.log("draw run");
+            clear();
+            ball.draw();
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            if (ball.y + ball.vy > canvas.height || ball.y + ball.vy < 0) {
+                ball.vy = -ball.vy;
+            }
+            if (ball.x + ball.vx > canvas.width || ball.x + ball.vx < 0) {
+                ball.vx = -ball.vx;
+            }
+
+            raf = window.requestAnimationFrame(draw);
+        };
+
+        var clear = function () {   //画板格式化
+            ctx.fillStyle = 'rgba(233, 233, 233, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        };
+
+        //resize handler start
+        var resizeFn = function(){
+            canvas.setAttribute("width", window.innerWidth + "px");
+            canvas.setAttribute("Height", window.innerHeight + "px");
+
+            if(ball.x + ball.radius > window.innerWidth){
+                ball.x = window.innerWidth - ball.radius;
+            }
+            if(ball.y + ball.radius > window.innerHeight){
+                ball.y = window.innerHeight - ball.radius;
+            }
+        };
+        var debouncedFn = Bin.debounce(16, resizeFn);
+
+        Bin.on(window, "resize", debouncedFn, false);
+        //resize handler end
+
+        /*Bin.on(canvas, 'mousemove', function (ev) {
+            var event = ev || window.event;
+            if (!running) {
+                clear();
+                ball.x = event.clientX;
+                ball.y = event.clientY;
+                ball.draw();
+            }
+        });*/
+
+        /*Bin.on(canvas, 'click', function (ev) {
+            var event = ev || window.event;
+            if (!running) {
+                raf = window.requestAnimationFrame(draw);
+                running = true;
+            }
+        });*/
+
+        /*Bin.on(canvas, 'mouseout', function (ev) {
+            var event = ev || window.event;
+            window.cancelAnimationFrame(raf);
+            running = false;
+        });*/
+
+        //ball.draw();
+        if(!running){
+            raf = window.requestAnimationFrame(draw);
+            running = true;
+        }
+    });
+</script>
+</body>
+</html>
